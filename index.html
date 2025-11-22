@@ -35,13 +35,13 @@
 <body>
 
 <div id="count">0</div>
-<div id="legend">*👶 = 100,000 abortions*</div>
+<div id="legend">*Icons = 100,000 abortions*</div>
 <div id="icons"></div>
 <button id="resetBtn">Reset Counter</button>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-app.js";
-  import { getDatabase, ref, onValue, set, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-database.js";
+  import { getDatabase, ref, onValue, set, runTransaction, get } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-database.js";
 
   // ---------- CONFIG ----------
   const firebaseConfig = {
@@ -59,12 +59,12 @@
   const app = initializeApp(firebaseConfig);
   const db = getDatabase();
   const totalRef = ref(db, "total");
+  const START_TOTAL = 116576241; // starting number if missing
 
   const countEl = document.getElementById("count");
   const iconsEl = document.getElementById("icons");
   const resetBtn = document.getElementById("resetBtn");
 
-  // Decade emojis
   const decadeEmojis = [
     { start: 1970, emoji: '🔴' },
     { start: 1980, emoji: '🟠' },
@@ -77,4 +77,54 @@
   // ---------- HELPER FUNCTIONS ----------
   function renderIcons(total) {
     iconsEl.innerHTML = "";
-    let iconsCount = Math.floor(total
+    let iconsCount = Math.floor(total / 100000);
+    for (let i = 0; i < iconsCount; i++) {
+      const decadeIndex = Math.floor(i / 10) % decadeEmojis.length;
+      const icon = document.createElement("span");
+      icon.className = "icon";
+      icon.textContent = decadeEmojis[decadeIndex].emoji;
+      iconsEl.appendChild(icon);
+    }
+  }
+
+  function incrementTotal() {
+    runTransaction(totalRef, current => (typeof current === "number" ? current + 1 : START_TOTAL));
+  }
+
+  function ensureTotalExists() {
+    get(totalRef).then(snapshot => {
+      if (!snapshot.exists()) {
+        set(totalRef, START_TOTAL);
+      }
+    });
+  }
+
+  // ---------- LISTEN TO DB ----------
+  onValue(totalRef, snapshot => {
+    const total = snapshot.val() || START_TOTAL;
+    countEl.textContent = total.toLocaleString();
+    renderIcons(total);
+  });
+
+  // ---------- INIT ----------
+  ensureTotalExists();
+
+  // ---------- AUTO INCREMENT ----------
+  function randomIntervalIncrement() {
+    const interval = 10000 + Math.random() * 20000; // 10–30 seconds
+    setTimeout(() => {
+      incrementTotal();
+      randomIntervalIncrement();
+    }, interval);
+  }
+  randomIntervalIncrement();
+
+  // ---------- RESET BUTTON ----------
+  resetBtn.addEventListener("click", () => {
+    set(totalRef, START_TOTAL);
+  });
+
+</script>
+
+</body>
+</html>
