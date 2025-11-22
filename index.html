@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Abortion Counter</title>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 20px;
+    }
+    #count {
+        font-size: 48px;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    #legend {
+        font-size: 18px;
+        margin-bottom: 20px;
+    }
+    #icons {
+        font-size: 36px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+        max-width: 900px;
+        margin: auto;
+    }
+</style>
+</head>
+<body>
+
+<div id="count">0</div>
+<div id="legend">*Icons = 100,000 abortions*</div>
+<div id="icons"></div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+// ------------------ FIREBASE CONFIG ------------------
+const firebaseConfig = {
+  apiKey: "AIzaSyDeb7DFUNOX8PHCVqoQJ--rWy-yOxXf9KU",
+  authDomain: "counter-f9760.firebaseapp.com",
+  databaseURL: "https://counter-f9760-default-rtdb.firebaseio.com",
+  projectId: "counter-f9760",
+  storageBucket: "counter-f9760.appspot.com",
+  messagingSenderId: "58667928978",
+  appId: "1:58667928978:web:7a6b693dd373b2fbbf854b",
+  measurementId: "G-GTG0KJT0LX"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const totalRef = db.ref("total");
+
+// ------------------ UI REFERENCES ------------------
+const countEl = document.getElementById("count");
+const iconsEl = document.getElementById("icons");
+
+// Colors by decade
+const decadeColors = ['🔴','🟠','🟡','🟢','🔵','🟣'];
+
+// ------------------ RENDER ICONS ------------------
+function renderIcons(total) {
+    iconsEl.innerHTML = "";
+    let iconCount = Math.floor(total / 100000);
+
+    for (let i = 0; i < iconCount; i++) {
+        const icon = document.createElement("span");
+        icon.textContent = decadeColors[Math.floor(i / 10) % decadeColors.length];
+        iconsEl.appendChild(icon);
+    }
+}
+
+// ------------------ LISTEN FOR CHANGES ------------------
+totalRef.on("value", snapshot => {
+    const total = snapshot.val() || 0;
+    countEl.textContent = total.toLocaleString();
+    renderIcons(total);
+});
+
+// ------------------ AUTO INCREMENT ------------------
+function autoAdd() {
+    setTimeout(() => {
+        totalRef.transaction(t => (t || 0) + 1);
+        autoAdd();
+    }, 10000 + Math.random() * 20000);
+}
+autoAdd();
+</script>
+
+</body>
+</html>
