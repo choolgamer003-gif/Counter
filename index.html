@@ -1,198 +1,80 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Synced Decade-Colored Counter</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      text-align: center;
-      color: #111;
-    }
-
-    h1 { margin: 0 0 8px 0; font-size: 22px; }
-    #counter { font-weight: bold; font-size: 20px; margin-bottom: 6px; }
-    #sub { margin-top: 0; font-size: 14px; color: #333; }
-
-    /* Grid of icons */
-    #icons {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, 28px); /* auto-fit to available width */
-      grid-auto-rows: 28px;
-      gap: 10px;
-      justify-content: center; /* center the grid horizontally */
-      margin-top: 18px;
-      font-size: 28px; /* emoji size */
-      max-width: 96vw;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .icon { display: inline-flex; align-items: center; justify-content: center; }
-
-    /* pop animation for newly added icon */
-    .pop {
-      transform: scale(1.5);
-      transition: transform 250ms ease-out;
-    }
-
-    /* Legend area */
-    #legend { margin-top: 14px; font-size: 15px; }
-    #decade-legend { margin-top: 8px; font-size: 16px; }
-    .decade-item { margin-right: 12px; display:inline-block; }
-    .muted { color: #555; font-size: 13px; margin-top: 6px; display:block; }
-  </style>
+<meta charset="UTF-8">
+<title>Counter</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 20px;
+  }
+  #count {
+    font-size: 40px;
+    margin-bottom: 5px;
+  }
+  #legend {
+    font-size: 16px;
+    margin-bottom: 20px;
+  }
+  #icons {
+    font-size: 32px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  .icon {
+    display: inline-block;
+  }
+  #resetBtn {
+    display: none; /* hidden by default */
+  }
+</style>
 </head>
 <body>
 
-  <h1>Abortion Visualization — Decade Colors</h1>
-  <div id="counter">Loading…</div>
-  <div id="sub"><strong>Each icon = 100,000 abortions</strong></div>
+<div id="count">0</div>
+<div id="legend">*👶 = 100,000 abortions*</div>
+<div id="icons"></div>
+<button id="resetBtn">Reset Counter</button>
 
-  <div id="decade-legend" aria-hidden="false">
-    <span class="decade-item">🔴 1970s</span>
-    <span class="decade-item">🟠 1980s</span>
-    <span class="decade-item">🟡 1990s</span>
-    <span class="decade-item">🟢 2000s</span>
-    <span class="decade-item">🔵 2010s</span>
-    <span class="decade-item">🟣 2020s</span>
-    <div class="muted">Icons are colored by historical decade mapping.</div>
-  </div>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-app.js";
+  import { getDatabase, ref, onValue, set, runTransaction } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-database.js";
 
-  <div id="icons" aria-live="polite" aria-atomic="false"></div>
+  // ---------- CONFIG ----------
+  const firebaseConfig = {
+    apiKey: "AIzaSyDeb7DFUNOX8PHCVqoQJ--rWy-yOxXf9KU",
+    authDomain: "counter-f9760.firebaseapp.com",
+    databaseURL: "https://counter-f9760-default-rtdb.firebaseio.com",
+    projectId: "counter-f9760",
+    storageBucket: "counter-f9760.appspot.com",
+    messagingSenderId: "58667928978",
+    appId: "1:58667928978:web:7a6b693dd373b2fbbf854b",
+    measurementId: "G-GTG0KJT0LX"
+  };
 
-  <!-- Firebase + App logic -->
-  <script type="module">
-    // Firebase modular imports
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-app.js";
-    import {
-      getDatabase,
-      ref,
-      onValue,
-      runTransaction
-    } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-database.js";
+  // ---------- INITIALIZE ----------
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase();
+  const totalRef = ref(db, "total");
 
-    // -----------------------------
-    // ← PASTE YOUR firebaseConfig BELOW (already provided earlier)
-    // -----------------------------
-    const firebaseConfig = {
-      apiKey: "AIzaSyDeb7DFUNOX8PHCVqoQJ--rWy-yOxXf9KU",
-      authDomain: "counter-f9760.firebaseapp.com",
-      databaseURL: "https://counter-f9760-default-rtdb.firebaseio.com",
-      projectId: "counter-f9760",
-      storageBucket: "counter-f9760.firebasestorage.app",
-      messagingSenderId: "58667928978",
-      appId: "1:58667928978:web:7a6b693dd373b2fbbf854b",
-      measurementId: "G-GTG0KJT0LX"
-    };
+  const countEl = document.getElementById("count");
+  const iconsEl = document.getElementById("icons");
+  const resetBtn = document.getElementById("resetBtn");
 
-    // Initialize Firebase + DB ref
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const totalRef = ref(db, "total");
+  // Decade emojis
+  const decadeEmojis = [
+    { start: 1970, emoji: '🔴' },
+    { start: 1980, emoji: '🟠' },
+    { start: 1990, emoji: '🟡' },
+    { start: 2000, emoji: '🟢' },
+    { start: 2010, emoji: '🔵' },
+    { start: 2020, emoji: '🟣' }
+  ];
 
-    // DOM elements
-    const counterEl = document.getElementById("counter");
-    const iconsEl = document.getElementById("icons");
-
-    // Icon rules
-    const ICON_VALUE = 100000; // 1 icon = 100k
-    const MIN_MS = 10000; // 10s
-    const MAX_MS = 30000; // 30s
-
-    // Decade emoji mapping and historical decade totals (used to map icons to decades)
-    const decadeEmojis = {
-      1970: "🔴",
-      1980: "🟠",
-      1990: "🟡",
-      2000: "🟢",
-      2010: "🔵",
-      2020: "🟣"
-    };
-
-    // Historical totals (these are the same approximations we used earlier)
-    const decadeTotals = [
-      { decade: 1970, total: 4895884 },   // 1973–1979
-      { decade: 1980, total: 11009096 },  // 1980–1989
-      { decade: 1990, total: 13999163 },  // 1990–1999
-      { decade: 2000, total: 10036491 },  // 2000–2009
-      { decade: 2010, total: 7159997  },  // 2010–2019
-      { decade: 2020, total: 3003455  }   // 2020–2025 estimate
-    ];
-
-    // Helper: given an absolute abortion-count number, return the decade emoji
-    function getDecadeEmojiForAbsolute(absoluteCount) {
-      // absoluteCount is a number of abortions (not icon index).
-      // We accumulate decadeTotals and see which decade that absoluteCount falls into.
-      let sum = 0;
-      for (let i = 0; i < decadeTotals.length; i++) {
-        sum += decadeTotals[i].total;
-        if (absoluteCount <= sum) {
-          return decadeEmojis[decadeTotals[i].decade];
-        }
-      }
-      return decadeEmojis[2020]; // default to 2020s if beyond known totals
-    }
-
-    // Render icons according to current total
-    function renderIconsFromTotal(total) {
-      counterEl.textContent = total.toLocaleString();
-      const iconCount = Math.floor(total / ICON_VALUE);
-
-      // If iconCount is large, rendering all at once may be heavy.
-      // We'll render directly; if needed, this can be optimized (virtualized).
-      iconsEl.innerHTML = "";
-      for (let i = 0; i < iconCount; i++) {
-        // Determine the absolute abortion number this icon represents
-        const absoluteForThisIcon = (i + 1) * ICON_VALUE;
-        const emoji = getDecadeEmojiForAbsolute(absoluteForThisIcon);
-        const span = document.createElement("span");
-        span.className = "icon";
-        span.textContent = emoji;
-        iconsEl.appendChild(span);
-      }
-    }
-
-    // Listen for realtime changes and render
-    onValue(totalRef, (snap) => {
-      const val = snap.val();
-      const total = (typeof val === "number") ? val : 0;
-      renderIconsFromTotal(total);
-    });
-
-    // Atomic increment using runTransaction (prevents overwrite races)
-    async function incrementRemoteTotalByOne() {
-      try {
-        await runTransaction(totalRef, (current) => {
-          // Ensure current is numeric
-          const now = (typeof current === "number") ? current + 1 : 1;
-          return now;
-        }, { applyLocally: true });
-        // onValue listener will update the UI when DB changes
-      } catch (err) {
-        console.error("Increment transaction failed:", err);
-      }
-    }
-
-    // Schedule next random increment
-    function scheduleNext() {
-      const delay = Math.floor(Math.random() * (MAX_MS - MIN_MS + 1)) + MIN_MS;
-      setTimeout(async () => {
-        await incrementRemoteTotalByOne();
-        scheduleNext();
-      }, delay);
-    }
-
-    // Start the automatic increments
-    scheduleNext();
-
-    // Optionally: expose a hidden reset helper (comment/uncomment in HTML to enable UI)
-    // Example (manual dev use only):
-    // window.resetToValue = async (n) => { await runTransaction(totalRef, () => n); };
-
-    // End of module
-  </script>
-</body>
-</html>
+  // ---------- HELPER FUNCTIONS ----------
+  function renderIcons(total) {
+    iconsEl.innerHTML = "";
+    let iconsCount = Math.floor(total
