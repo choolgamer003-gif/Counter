@@ -28,7 +28,7 @@
     display: inline-block;
   }
   #resetBtn {
-    display: none; /* hidden by default */
+    display: none; /* hidden */
   }
 </style>
 </head>
@@ -39,10 +39,11 @@
 <div id="icons"></div>
 <button id="resetBtn">Reset Counter</button>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-app.js";
-  import { getDatabase, ref, onValue, set, runTransaction, get } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-database.js";
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-database.js"></script>
 
+<script>
   // ---------- CONFIG ----------
   const firebaseConfig = {
     apiKey: "AIzaSyDeb7DFUNOX8PHCVqoQJ--rWy-yOxXf9KU",
@@ -56,74 +57,63 @@
   };
 
   // ---------- INITIALIZE ----------
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase();
-  const totalRef = ref(db, "total");
-  const START_TOTAL = 116576241; // starting number if missing
+  const app = firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const totalRef = db.ref("total");
+  const START_TOTAL = 116576241;
 
   const countEl = document.getElementById("count");
   const iconsEl = document.getElementById("icons");
   const resetBtn = document.getElementById("resetBtn");
 
   const decadeEmojis = [
-    { start: 1970, emoji: '🔴' },
-    { start: 1980, emoji: '🟠' },
-    { start: 1990, emoji: '🟡' },
-    { start: 2000, emoji: '🟢' },
-    { start: 2010, emoji: '🔵' },
-    { start: 2020, emoji: '🟣' }
+    '🔴','🟠','🟡','🟢','🔵','🟣'
   ];
 
-  // ---------- HELPER FUNCTIONS ----------
+  // ---------- FUNCTIONS ----------
   function renderIcons(total) {
     iconsEl.innerHTML = "";
     let iconsCount = Math.floor(total / 100000);
     for (let i = 0; i < iconsCount; i++) {
-      const decadeIndex = Math.floor(i / 10) % decadeEmojis.length;
       const icon = document.createElement("span");
       icon.className = "icon";
-      icon.textContent = decadeEmojis[decadeIndex].emoji;
+      icon.textContent = decadeEmojis[Math.floor(i / 10) % decadeEmojis.length];
       iconsEl.appendChild(icon);
     }
   }
 
   function incrementTotal() {
-    runTransaction(totalRef, current => (typeof current === "number" ? current + 1 : START_TOTAL));
-  }
-
-  function ensureTotalExists() {
-    get(totalRef).then(snapshot => {
-      if (!snapshot.exists()) {
-        set(totalRef, START_TOTAL);
-      }
+    totalRef.transaction(current => {
+      if (typeof current === "number") return current + 1;
+      else return START_TOTAL;
     });
   }
 
-  // ---------- LISTEN TO DB ----------
-  onValue(totalRef, snapshot => {
+  // Ensure total exists
+  totalRef.once("value", snapshot => {
+    if (!snapshot.exists()) totalRef.set(START_TOTAL);
+  });
+
+  // Listen for changes
+  totalRef.on("value", snapshot => {
     const total = snapshot.val() || START_TOTAL;
     countEl.textContent = total.toLocaleString();
     renderIcons(total);
   });
 
-  // ---------- INIT ----------
-  ensureTotalExists();
-
-  // ---------- AUTO INCREMENT ----------
-  function randomIntervalIncrement() {
-    const interval = 10000 + Math.random() * 20000; // 10–30 seconds
+  // Auto-increment 1 every 10–30 sec
+  function randomIncrement() {
     setTimeout(() => {
       incrementTotal();
-      randomIntervalIncrement();
-    }, interval);
+      randomIncrement();
+    }, 10000 + Math.random() * 20000);
   }
-  randomIntervalIncrement();
+  randomIncrement();
 
-  // ---------- RESET BUTTON ----------
+  // Hidden reset
   resetBtn.addEventListener("click", () => {
-    set(totalRef, START_TOTAL);
+    totalRef.set(START_TOTAL);
   });
-
 </script>
 
 </body>
